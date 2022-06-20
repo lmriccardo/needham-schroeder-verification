@@ -16,4 +16,9 @@ If we assume that A and B already knows each others public keys, we can remove f
 
 ## Verification
 
-The model has been verified with [SPIN](https://spinroot.com/spin/whatispin.html), [Murphi](http://formalverification.cs.utah.edu/Murphi/) and [NuSMV](https://nusmv.fbk.eu/), three well known model-checker. 
+The model has been verified with [SPIN](https://spinroot.com/spin/whatispin.html), [Murphi](http://formalverification.cs.utah.edu/Murphi/) and [NuSMV](https://nusmv.fbk.eu/), three well known model-checkers. 
+
+>Say that X takes part in a protocol run with Y
+>if X has initiated a protocol session with Y
+>Say that X commits to a session with Y
+>if X has correctly concluded a protocol session with Y
