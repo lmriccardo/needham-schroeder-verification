@@ -12,3 +12,8 @@ If we assume that A and B already knows each others public keys, we can remove f
 
 <img src="https://i.imgur.com/JfZo95i.png" alt="Reduced Needham-Schroeder Protocol" align="center">
 
+---
+
+## Verification
+
+The model has been verified with [SPIN](https://spinroot.com/spin/whatispin.html), [Murphi](http://formalverification.cs.utah.edu/Murphi/) and [NuSMV](https://nusmv.fbk.eu/), three well known model-checker. 
