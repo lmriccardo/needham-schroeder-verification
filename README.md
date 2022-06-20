@@ -23,13 +23,17 @@ The model has been verified with [SPIN](https://spinroot.com/spin/whatispin.html
 Following the above definition, we can state that: the *authentication* of B to A means that A commits to a session with B and B has indeed taken part in a protocol run with A, and viceversa. These are the two properties that we want to verify. In LTL we have
 
 ```
-[] (([] !(IniCommitAB)) || (!(IniCommitAB) U (ResRunningAB)))
-[] (([] !(ResCommitAB)) || (!(ResCommitAB) U (IniRunningAB)))
+[] (([] !(IniCommitAB)) || (!(IniCommitAB) U (ResRunningAB))) --- P1
+[] (([] !(ResCommitAB)) || (!(ResCommitAB) U (IniRunningAB))) --- P2
 ```
 
 Finally, I added one more property to be verified: the **deadlock** property. In this model we have a deadlock only if we cannot never reach the authentication, i.e., if the protocol is stuck and no authentication has been reached. This is the corresponding LTL spec
 
 ```
 [] <> (  IniCommitAB & IniRunningAB
-       & ResCommitAB & ResRunningAB)
+       & ResCommitAB & ResRunningAB) --- P3
 ```
+
+These are the results of the verification step
+
+<img src="https://i.imgur.com/z1GT5r4.png" alt="Verification Results" align="center">
