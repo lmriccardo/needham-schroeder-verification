@@ -1,0 +1,828 @@
+MODULE main
+VAR
+    ca: process Ca_Channel;
+    cb: process Cb_Channel;
+
+    IniCommitAB : boolean;
+    IniRunningAB: boolean;
+    ResRunningAB: boolean;
+    ResCommitAB : boolean;
+
+    end_PIni : boolean;
+    end_PRes : boolean;
+
+    p_initial : process initial(self);
+
+ASSIGN
+    init(IniCommitAB)  := FALSE;
+    init(IniRunningAB) := FALSE;
+    init(ResCommitAB)  := FALSE;
+    init(ResRunningAB) := FALSE;
+
+TRANS
+    !running
+
+DEFINE
+    ca_is_empty := ca.len < 1;
+    cb_is_empty := cb.len < 1;
+
+-- LTLSPEC G ((G !ResCommitAB) | (!ResCommitAB U IniRunningAB));
+-- LTLSPEC G ((G !IniCommitAB) | (!IniCommitAB U ResRunningAB));
+-- LTLSPEC G F (IniCommitAB & IniRunningAB & ResCommitAB & ResRunningAB)
+LTLSPEC G (  !(p_initial.PIni_process1.runable | p_initial.PIni_process2.runable)
+           & !(p_initial.PI_process.runable) & !(p_initial.PRes_process.runable) -> (end_PIni & end_PRes));
+
+
+MODULE Ca_Channel
+VAR
+    x1 : {None, A1, B, I, Na, Nb, gD, R};
+    x2 : {None, A1, B, I, Na, Nb, gD, R};
+    PK : {None, A1, B, I, Na, Nb, gD, R};
+    x3 : {None, A1, B, I, Na, Nb, gD, R};
+    len: 0..1;
+ASSIGN
+    init(x1)  := None;
+    init(x2)  := None;
+    init(PK)  := None;
+    init(x3)  := None;
+    init(len) := 0;
+TRANS
+    !running
+
+
+MODULE Cb_Channel
+VAR
+    x1 : {None, A1, B, I, Na, Nb, gD, R};
+    PK : {None, A1, B, I, Na, Nb, gD, R};
+    x2 : {None, A1, B, I, Na, Nb, gD, R};
+    len: 0..1;
+ASSIGN
+    init(x1)  := None;
+    init(x2)  := None;
+    init(PK)  := None;
+    init(len) := 0;
+TRANS
+    !running
+
+MODULE PIni(sup, run)
+VAR
+    slef   : {None, A1, B, I, Na, Nb, gD, R};
+    party  : {None, A1, B, I, Na, Nb, gD, R};
+    nonce  : {None, A1, B, I, Na, Nb, gD, R};
+    runable: boolean;
+    g1     : {None, A1, B, I, Na, Nb, gD, R};
+    pc     : 1..16;
+ASSIGN
+   init(g1)      := None;
+   init(pc)      := 1;
+   init(slef)    := None;
+   init(party)   := None;
+   init(nonce)   := None;
+   init(runable) := run;
+
+   next(sup.IniRunningAB) := case
+        pc = 3: TRUE;
+        TRUE: sup.IniRunningAB;
+    esac;
+
+    next(sup.ca.x1) := case
+        pc = 6 & sup.ca_is_empty: slef;
+        pc = 8 & sup.ca.len > 0 & (  (sup.ca.x1 = slef) 
+                                   & (sup.ca.x2 = nonce)
+                                   & (sup.ca.x3 = slef)): None;
+        TRUE : sup.ca.x1;
+    esac;
+
+    next(sup.ca.x2) := case
+        pc = 6 & sup.ca_is_empty: nonce;
+        pc = 8 & sup.ca.len > 0 & (  (sup.ca.x1 = slef) 
+                                   & (sup.ca.x2 = nonce)
+                                   & (sup.ca.x3 = slef)): None;
+        TRUE : sup.ca.x2;
+    esac;
+
+    next(sup.ca.PK) := case
+        pc = 6 & sup.ca_is_empty: slef;
+        pc = 8 & sup.ca.len > 0 & (  (sup.ca.x1 = slef) 
+                                   & (sup.ca.x2 = nonce)
+                                   & (sup.ca.x3 = slef)): None;
+        TRUE : sup.ca.PK;
+    esac;
+
+    next(sup.ca.x3) := case
+        pc = 6 & sup.ca_is_empty: party;
+        pc = 8 & sup.ca.len > 0 & (  (sup.ca.x1 = slef) 
+                                   & (sup.ca.x2 = nonce)
+                                   & (sup.ca.x3 = slef)): None;
+        TRUE : sup.ca.x3;
+    esac;
+
+    next(sup.ca.len) := case
+        pc = 6 & sup.ca_is_empty: 1;
+        pc = 8 & sup.ca.len > 0 & (  (sup.ca.x1 = slef) 
+                                   & (sup.ca.x2 = nonce)
+                                   & (sup.ca.x3 = slef)): 0;
+        TRUE : sup.ca.len;
+    esac;
+
+    next(g1) := case 
+        pc = 8 & sup.ca.len > 0 & (  (sup.ca.x1 = slef) 
+                                   & (sup.ca.x2 = nonce)
+                                   & (sup.ca.x3 = slef)): sup.ca.PK;
+        TRUE : g1;
+    esac;
+
+    next(sup.IniCommitAB) := case
+        pc = 11: TRUE;
+        TRUE: sup.IniCommitAB;
+    esac;
+
+    next(sup.cb.x1) := case
+        pc = 14 & sup.cb_is_empty: slef;
+        TRUE: sup.cb.x1;
+    esac;
+    
+    next(sup.cb.PK) := case
+        pc = 14 & sup.cb_is_empty: g1;
+        TRUE: sup.cb.PK;
+    esac;
+
+    next(sup.cb.x2) := case
+        pc = 14 & sup.cb_is_empty: party;
+        TRUE: sup.cb.x2;
+    esac;
+
+    next(sup.cb.len) := case
+        pc = 14 & sup.cb_is_empty: 1;
+        TRUE: sup.cb.len;
+    esac;
+
+    next(sup.end_PIni) := case
+        pc = 16: TRUE;
+        TRUE: sup.end_PIni;
+    esac;
+
+    next(pc) := case
+        pc = 1 & ((slef = A1) & (party = B)): 2;
+        pc = 1 & !((slef = A1) & (party = B)): 4;
+        pc = 2: 3;
+        pc = 3: 6;
+        pc = 4: 5;
+        pc = 5: 6;
+        pc = 6 & (sup.ca_is_empty): 7;
+        pc = 7 & (sup.ca_is_empty): 8;
+        pc = 8 & sup.ca.len > 0 & (  (sup.ca.x1 = slef) 
+                                     & (sup.ca.x2 = nonce)
+                                     & (sup.ca.x3 = slef)): 9;
+        pc = 9 & ((slef = A1) & (party = B)): 10;
+        pc = 9 & !((slef = A1) & (party = B)): 12;
+        pc = 10: 11;
+        pc = 11: 14;
+        pc = 12: 13;
+        pc = 13: 14;
+        pc = 14 & sup.cb_is_empty: 15;
+        pc = 15 & sup.cb_is_empty: 16;
+        TRUE: pc;
+    esac;
+
+TRANS
+    (
+          pc = 6 & !(sup.ca_is_empty)
+        | pc = 7 & !(sup.ca_is_empty)
+        | pc = 8 & !(sup.ca.len > 0 & (  (sup.ca.x1 = slef) 
+                                     & (sup.ca.x2 = nonce)
+                                     & (sup.ca.x3 = slef)))
+        | pc = 14 & !(sup.cb_is_empty)
+        | pc = 15 & !(sup.cb_is_empty)
+        | pc = 16
+        | !runable
+          -> !running
+    )
+
+
+MODULE PRes(sup, run)
+VAR
+    slef    : {None, A1, B, I, Na, Nb, gD, R};
+    nonce   : {None, A1, B, I, Na, Nb, gD, R};
+    g2      : {None, A1, B, I, Na, Nb, gD, R};
+    g3      : {None, A1, B, I, Na, Nb, gD, R};
+    runable : boolean;
+    pc      : 1..15;
+ASSIGN
+    init(pc)      := 1;
+    init(slef)    := None;
+    init(nonce)   := None;
+    init(runable) := run;
+    init(g2)      := None;
+    init(g3)      := None;
+
+    next(sup.ca.x1) := case
+        pc = 1 & !(sup.ca_is_empty) & (  (slef = sup.ca.x1)
+                                       & (slef = sup.ca.x3)): None;
+        pc = 7 & sup.ca_is_empty: slef;
+        TRUE: sup.ca.x1;
+    esac;
+
+    next(sup.ca.x2) := case
+        pc = 1 & !(sup.ca_is_empty) & (  (slef = sup.ca.x1)
+                                       & (slef = sup.ca.x3)): None;
+        pc = 7 & sup.ca_is_empty: g2;
+        TRUE: sup.ca.x2;
+    esac;
+
+    next(sup.ca.PK) := case
+        pc = 1 & !(sup.ca_is_empty) & (  (slef = sup.ca.x1)
+                                       & (slef = sup.ca.x3)): None;
+        pc = 7 & sup.ca_is_empty: nonce;
+        TRUE: sup.ca.PK;
+    esac;
+
+    next(sup.ca.x3) := case
+        pc = 1 & !(sup.ca_is_empty) & (  (slef = sup.ca.x1)
+                                       & (slef = sup.ca.x3)): None;
+        pc = 7 & sup.ca_is_empty: g3;
+        TRUE: sup.ca.x3;
+    esac;
+
+    next(sup.ca.len) := case
+        pc = 1 & !(sup.ca_is_empty) & (  (slef = sup.ca.x1)
+                                       & (slef = sup.ca.x3)): 0;
+        pc = 7 & sup.ca_is_empty: 1;
+        TRUE: sup.ca.len;
+    esac;
+
+    next(g2) := case
+        pc = 1 & !(sup.ca_is_empty) & (  (slef = sup.ca.x1)
+                                       & (slef = sup.ca.x3)): sup.ca.x2;
+        TRUE: g2;
+    esac;
+
+    next(g3) := case
+        pc = 1 & !(sup.ca_is_empty) & (  (slef = sup.ca.x1)
+                                       & (slef = sup.ca.x3)): sup.ca.PK;
+        TRUE: g3;
+    esac;
+
+    next(sup.ResRunningAB) := case
+        pc = 4: TRUE;
+        TRUE: sup.ResRunningAB;
+    esac;
+
+    next(sup.cb.x1) := case
+        pc = 9 & !(sup.cb_is_empty) & (  (slef = sup.cb.x1)
+                                         & (nonce = sup.cb.PK)
+                                         & (slef = sup.cb.x2)): None;
+        TRUE: sup.cb.x1;
+    esac;
+
+    next(sup.cb.PK) := case
+        pc = 9 & !(sup.cb_is_empty) & (  (slef = sup.cb.x1)
+                                         & (nonce = sup.cb.PK)
+                                         & (slef = sup.cb.x2)): None;
+        TRUE: sup.cb.PK;
+    esac;
+
+    next(sup.cb.x2) := case
+        pc = 9 & !(sup.cb_is_empty) & (  (slef = sup.cb.x1)
+                                         & (nonce = sup.cb.PK)
+                                         & (slef = sup.cb.x2)): None;
+        TRUE: sup.cb.x2;
+    esac;
+
+    next(sup.cb.len) := case
+        pc = 9 & !(sup.cb_is_empty) & (  (slef = sup.cb.x1)
+                                         & (nonce = sup.cb.PK)
+                                         & (slef = sup.cb.x2)): 0;
+        TRUE: sup.cb.len;
+    esac;
+
+    next(sup.ResCommitAB) := case
+        pc = 12: TRUE;
+        TRUE: sup.ResCommitAB;
+    esac;
+
+    next(sup.end_PRes) := case
+        pc = 15: TRUE;
+        TRUE: sup.end_PIni;
+    esac;
+
+    next(pc) := case
+        pc = 1 & !(sup.ca_is_empty) & (  (slef = sup.ca.x1)
+                                       & (slef = sup.ca.x3)): 2;
+        pc = 2 & ((g3 = A1) & (slef = B)): 3;
+        pc = 2 & !((g3 = A1) & (slef = B)): 5;
+        pc = 3: 4;
+        pc = 4: 7;
+        pc = 5: 6;
+        pc = 6: 7;
+        pc = 7 & sup.ca_is_empty: 8;
+        pc = 8 & sup.ca_is_empty: 9;
+        pc = 9 & !(sup.cb_is_empty) & (  (slef = sup.cb.x1)
+                                         & (nonce = sup.cb.PK)
+                                         & (slef = sup.cb.x2)): 10;
+        pc = 10 & ((g3 = A1) & (slef = B)): 11;
+        pc = 10 & !((g3 = A1) & (slef = B)): 13;
+        pc = 11: 12;
+        pc = 12: 15;
+        pc = 13: 14;
+        pc = 14: 15;
+        TRUE: pc;
+    esac;
+
+TRANS
+    (
+          pc = 1 & !(!(sup.ca_is_empty) & (  (slef = sup.ca.x1)
+                                       & (slef = sup.ca.x3)))
+        | pc = 7 & !(sup.ca_is_empty)
+        | pc = 8 & !(sup.ca_is_empty)
+        | pc = 9 & !(!(sup.cb_is_empty) & (  (slef = sup.cb.x1)
+                                         & (nonce = sup.cb.PK)
+                                         & (slef = sup.cb.x2)))
+        | pc = 15
+        | !runable
+          -> !running
+    )
+
+
+MODULE PI(sup, run)
+VAR 
+    kNa: boolean;
+    kNb: boolean;
+
+    k_Na_Nb__A: boolean;
+    k_Na_A__B : boolean;
+    k_Nb__B   : boolean;
+
+    x1: {None, A1, B, I, Na, Nb, gD, R};
+    x2: {None, A1, B, I, Na, Nb, gD, R};
+    x3: {None, A1, B, I, Na, Nb, gD, R};
+
+    pc     : 1..98;
+    runable: boolean;
+ASSIGN
+    init(runable) := run;
+    init(kNa) := FALSE;
+    init(kNb) := FALSE;
+    init(k_Na_Nb__A) := FALSE;
+    init(k_Na_A__B) := FALSE;
+    init(k_Nb__B) := FALSE;
+    init(x1) := None;
+    init(x2) := None;
+    init(x3) := None;
+    init(pc) := 1;
+
+    next(sup.ca.x1) := case
+        pc = 2 & sup.ca_is_empty : B;
+        pc = 4 & sup.ca_is_empty : B;
+        pc = 6 & sup.ca_is_empty : B;
+        pc = 8 & sup.ca_is_empty : B;
+        pc = 10 & sup.ca_is_empty : B;
+        pc = 12 & sup.ca_is_empty : B;
+        pc = 14 & sup.ca_is_empty : B;
+        pc = 16 & sup.ca_is_empty : B;
+        pc = 18 & sup.ca_is_empty : B;
+        pc = 20 & sup.ca_is_empty : B;
+        pc = 22 & sup.ca_is_empty : B;
+        pc = 24 & sup.ca_is_empty : B;
+        pc = 26 & sup.ca_is_empty : kNa ? A1 : R;
+        pc = 28 & sup.ca_is_empty : ((kNa & kNb) | k_Na_Nb__A) ? A1 : R;
+        pc = 30 & sup.ca_is_empty : kNa ? A1 : R;
+        pc = 32 & sup.ca_is_empty : kNa ? A1 : R;
+        pc = 34 & sup.ca_is_empty : kNa ? A1 : R;
+        pc = 36 & sup.ca_is_empty : kNa ? A1 : R;
+        pc = 38 & sup.ca_is_empty : (kNa | k_Na_A__B) ? B : R;
+        pc = 40 & sup.ca_is_empty : kNa ? B : R;
+        pc = 42 & sup.ca_is_empty : kNa ? B : R;
+        pc = 44 & sup.ca_is_empty : kNb ? B : R;
+        pc = 46 & sup.ca_is_empty : kNb ? B : R;
+        pc = 48 & sup.ca_is_empty : kNb ? B : R;
+        pc = 52 & !(sup.ca_is_empty) : None;
+        TRUE   : sup.ca.x1;
+    esac;
+
+    next(sup.ca.x2) := case
+        pc = 2 & sup.ca_is_empty : gD;
+        pc = 4 & sup.ca_is_empty : gD;
+        pc = 6 & sup.ca_is_empty : gD;
+        pc = 8 & sup.ca_is_empty : A1;
+        pc = 10 & sup.ca_is_empty : A1;
+        pc = 12 & sup.ca_is_empty : A1;
+        pc = 14 & sup.ca_is_empty : B;
+        pc = 16 & sup.ca_is_empty : B;
+        pc = 18 & sup.ca_is_empty : B;
+        pc = 20 & sup.ca_is_empty : I;
+        pc = 22 & sup.ca_is_empty : I;
+        pc = 24 & sup.ca_is_empty : I;
+        pc = 26 & sup.ca_is_empty : Na;
+        pc = 28 & sup.ca_is_empty : Na;
+        pc = 30 & sup.ca_is_empty : Na;
+        pc = 32 & sup.ca_is_empty : Na;
+        pc = 34 & sup.ca_is_empty : Na;
+        pc = 36 & sup.ca_is_empty : Na;
+        pc = 38 & sup.ca_is_empty : Na;
+        pc = 40 & sup.ca_is_empty : Na;
+        pc = 42 & sup.ca_is_empty : Na;
+        pc = 44 & sup.ca_is_empty : Nb;
+        pc = 46 & sup.ca_is_empty : Nb;
+        pc = 48 & sup.ca_is_empty : Nb;
+        pc = 52 & !(sup.ca_is_empty) : None;
+        TRUE   : sup.ca.x2;
+    esac;
+
+    next(sup.ca.PK) := case
+        pc = 2 & sup.ca_is_empty : A1;
+        pc = 4 & sup.ca_is_empty : B;
+        pc = 6 & sup.ca_is_empty : I;
+        pc = 8 & sup.ca_is_empty : A1;
+        pc = 10 & sup.ca_is_empty : B;
+        pc = 12 & sup.ca_is_empty : I;
+        pc = 14 & sup.ca_is_empty : A1;
+        pc = 16 & sup.ca_is_empty : B;
+        pc = 18 & sup.ca_is_empty : I;
+        pc = 20 & sup.ca_is_empty : A1;
+        pc = 22 & sup.ca_is_empty : B;
+        pc = 24 & sup.ca_is_empty : I;
+        pc = 26 & sup.ca_is_empty : Na;
+        pc = 28 & sup.ca_is_empty : Nb;
+        pc = 30 & sup.ca_is_empty : gD;
+        pc = 32 & sup.ca_is_empty : A1;
+        pc = 34 & sup.ca_is_empty : B;
+        pc = 36 & sup.ca_is_empty : I;
+        pc = 38 & sup.ca_is_empty : A1;
+        pc = 40 & sup.ca_is_empty : B;
+        pc = 42 & sup.ca_is_empty : I;
+        pc = 44 & sup.ca_is_empty : A1;
+        pc = 46 & sup.ca_is_empty : B;
+        pc = 48 & sup.ca_is_empty : I;
+        pc = 52 & !(sup.ca_is_empty) : None;
+        TRUE   : sup.ca.PK;
+    esac;
+
+    next(sup.ca.x3) := case
+        pc = 2 & sup.ca_is_empty : B;
+        pc = 4 & sup.ca_is_empty : B;
+        pc = 6 & sup.ca_is_empty : B;
+        pc = 8 & sup.ca_is_empty : B;
+        pc = 10 & sup.ca_is_empty : B;
+        pc = 12 & sup.ca_is_empty : B;
+        pc = 14 & sup.ca_is_empty : B;
+        pc = 16 & sup.ca_is_empty : B;
+        pc = 18 & sup.ca_is_empty : B;
+        pc = 20 & sup.ca_is_empty : B;
+        pc = 22 & sup.ca_is_empty : B;
+        pc = 24 & sup.ca_is_empty : B;
+        pc = 26 & sup.ca_is_empty : A1;
+        pc = 28 & sup.ca_is_empty : A1;
+        pc = 30 & sup.ca_is_empty : A1;
+        pc = 32 & sup.ca_is_empty : A1;
+        pc = 34 & sup.ca_is_empty : A1;
+        pc = 36 & sup.ca_is_empty : A1;
+        pc = 38 & sup.ca_is_empty : B;
+        pc = 40 & sup.ca_is_empty : B;
+        pc = 42 & sup.ca_is_empty : B;
+        pc = 44 & sup.ca_is_empty : B;
+        pc = 46 & sup.ca_is_empty : B;
+        pc = 48 & sup.ca_is_empty : B;
+        pc = 52 & !(sup.ca_is_empty) : None;
+        TRUE   : sup.ca.x3;
+    esac;
+
+    next(sup.ca.len) := case
+        pc = 2 & sup.ca_is_empty : 1;
+        pc = 4 & sup.ca_is_empty : 1;
+        pc = 6 & sup.ca_is_empty : 1;
+        pc = 8 & sup.ca_is_empty : 1;
+        pc = 10 & sup.ca_is_empty : 1;
+        pc = 12 & sup.ca_is_empty : 1;
+        pc = 14 & sup.ca_is_empty : 1;
+        pc = 16 & sup.ca_is_empty : 1;
+        pc = 18 & sup.ca_is_empty : 1;
+        pc = 20 & sup.ca_is_empty : 1;
+        pc = 22 & sup.ca_is_empty : 1;
+        pc = 24 & sup.ca_is_empty : 1;
+        pc = 26 & sup.ca_is_empty : 1;
+        pc = 28 & sup.ca_is_empty : 1;
+        pc = 30 & sup.ca_is_empty : 1;
+        pc = 32 & sup.ca_is_empty : 1;
+        pc = 34 & sup.ca_is_empty : 1;
+        pc = 36 & sup.ca_is_empty : 1;
+        pc = 38 & sup.ca_is_empty : 1;
+        pc = 40 & sup.ca_is_empty : 1;
+        pc = 42 & sup.ca_is_empty : 1;
+        pc = 44 & sup.ca_is_empty : 1;
+        pc = 46 & sup.ca_is_empty : 1;
+        pc = 48 & sup.ca_is_empty : 1;
+        pc = 52 & !(sup.ca_is_empty) : 0;
+        TRUE: sup.ca.len;
+    esac;
+
+    next(sup.cb.x1) := case
+        pc = 50 & sup.cb_is_empty: (k_Nb__B | kNb) ? B : R;
+        pc = 80 & !(sup.cb_is_empty): None;
+        TRUE: sup.cb.x1;
+    esac;
+
+    next(sup.cb.PK) := case
+        pc = 50 & sup.cb_is_empty: Nb;
+        pc = 80 & !(sup.cb_is_empty): None;
+        TRUE: sup.cb.PK;
+    esac;
+
+    next(sup.cb.x2) := case
+        pc = 50 & sup.cb_is_empty: B;
+        pc = 80 & !(sup.cb_is_empty): None;
+        TRUE: sup.cb.x2;
+    esac;
+
+    next(sup.cb.len) := case
+        pc = 50 & sup.cb_is_empty: 1;
+        pc = 80 & !(sup.cb_is_empty): 0;
+        TRUE: sup.cb.len;
+    esac;
+
+    next(x1) := case
+        pc = 52 & !(sup.ca_is_empty): sup.ca.x2;
+        pc = 77: None;
+        pc = 80 & !(sup.cb_is_empty): sup.cb.PK;
+        pc = 96: None;
+        TRUE: x1;
+    esac;
+
+    next(x2) := case
+        pc = 52 & !(sup.ca_is_empty): sup.ca.PK;
+        pc = 78: None;
+        pc = 80 & !(sup.cb_is_empty): sup.cb.x2;
+        pc = 97: None;
+        TRUE: x2;
+    esac;
+
+    next(x3) := case
+        pc = 52 & !(sup.ca_is_empty): sup.ca.x3;
+        pc = 79: None;
+        TRUE: x3;
+    esac;
+
+    next(kNa) := case
+        pc = 57 : TRUE;
+        pc = 64 : TRUE;
+        pc = 85 : TRUE;
+        TRUE   : kNa;
+    esac;
+
+    next(kNb) := case
+        pc = 59 : TRUE;
+        pc = 66 : TRUE;
+        pc = 87 : TRUE;
+        TRUE   : kNb;
+    esac;
+
+    next(k_Na_A__B) := case
+        pc = 72 : TRUE;
+        TRUE   : k_Na_A__B;
+    esac;
+
+    next(k_Na_Nb__A) := case
+        pc = 74 : TRUE;
+        TRUE   : k_Na_Nb__A;
+    esac;
+
+    next(k_Nb__B) := case
+        pc = 93 : TRUE;
+        TRUE   : k_Nb__B;
+    esac;
+
+    next(pc) := case
+        pc = 1 & (sup.ca_is_empty | sup.cb_is_empty | !(sup.ca_is_empty) | !(sup.cb_is_empty)): 
+                                  { 2,  4,  6,  8, 10, 12, 14, 16, 18, 20, 
+                                   22, 24, 26, 28, 30, 32, 34, 36, 38, 40,
+                                   42, 44, 46, 48, 50, 52, 80};
+        pc = 2: 3;
+        pc = 3 & sup.ca_is_empty: 1;
+        pc = 4: 5;
+        pc = 5 & sup.ca_is_empty: 1;
+        pc = 6: 7;
+        pc = 7 & sup.ca_is_empty: 1;
+        pc = 8: 9;
+        pc = 9 & sup.ca_is_empty: 1;
+        pc = 10: 11;
+        pc = 11 & sup.ca_is_empty: 1;
+        pc = 12: 13;
+        pc = 13 & sup.ca_is_empty: 1;
+        pc = 14: 15;
+        pc = 15 & sup.ca_is_empty: 1;
+        pc = 16: 17;
+        pc = 17 & sup.ca_is_empty: 1;
+        pc = 18: 19;
+        pc = 19 & sup.ca_is_empty: 1;
+        pc = 20: 21;
+        pc = 21 & sup.ca_is_empty: 1;
+        pc = 22: 23;
+        pc = 23 & sup.ca_is_empty: 1;
+        pc = 24: 25;
+        pc = 25 & sup.ca_is_empty: 1;
+        pc = 26: 27;
+        pc = 27 & sup.ca_is_empty: 1;
+        pc = 28: 29;
+        pc = 29 & sup.ca_is_empty: 1;
+        pc = 30: 31;
+        pc = 31 & sup.ca_is_empty: 1;
+        pc = 32: 33;
+        pc = 33 & sup.ca_is_empty: 1;
+        pc = 34: 35;
+        pc = 35 & sup.ca_is_empty: 1;
+        pc = 36: 37;
+        pc = 37 & sup.ca_is_empty: 1;
+        pc = 38: 39;
+        pc = 39 & sup.ca_is_empty: 1;
+        pc = 40: 41;
+        pc = 41 & sup.ca_is_empty: 1;
+        pc = 42: 43;
+        pc = 43 & sup.ca_is_empty: 1;
+        pc = 44: 45;
+        pc = 45 & sup.ca_is_empty: 1;
+        pc = 46: 47;
+        pc = 47 & sup.ca_is_empty: 1;
+        pc = 48: 49;
+        pc = 49 & sup.ca_is_empty: 1;
+        pc = 50: 51;
+        pc = 51 & sup.cb_is_empty: 1;
+        pc = 52: 53;
+        pc = 53 & (x3 = I): 54;
+        pc = 53 & !(x3 = I): 69;
+        pc = 54: 55;
+        pc = 55 & (x1 = Na): 56;
+        pc = 55 & (x1 = Nb): 58;
+        pc = 55 & !((x1 = Na) | (x1 = Nb)): 60;
+        pc = 56: 57;
+        pc = 57: 62;
+        pc = 58: 59;
+        pc = 59: 62;
+        pc = 60: 61;
+        pc = 61: 62;
+        pc = 62 & (x2 = Na): 63;
+        pc = 62 & (x2 = Nb): 65;
+        pc = 62 & !((x2 = Na) | (x2 = Nb)): 67;
+        pc = 63: 64;
+        pc = 64: 77;
+        pc = 65: 66;
+        pc = 66: 77;
+        pc = 67: 68;
+        pc = 68: 77;
+        pc = 69: 70;
+        pc = 70 & (x1 = Na & x2 = A1 & x3 = B): 71;
+        pc = 70 & (x1 = Na & x2 = Nb & x3 = A1): 73;
+        pc = 70 & !(  (x1 = Na & x2 = A1 & x3 = B) 
+                    | (x1 = Na & x2 = Nb & x3 = A1)): 75;
+        pc = 71: 72;
+        pc = 72: 77;
+        pc = 73: 74;
+        pc = 74: 77;
+        pc = 75: 76;
+        pc = 76: 77;
+        pc = 77: 78;
+        pc = 78: 79;
+        pc = 79: 1;
+        pc = 80: 81;
+        pc = 81 & (x2 = I): 82;
+        pc = 81 & !(x2 = I): 90;
+        pc = 82: 83;
+        pc = 83 & (x1 = Na): 84;
+        pc = 83 & (x1 = Nb): 86;
+        pc = 83 & !((x1 = Na) | (x1 = Nb)): 88;
+        pc = 84: 85;
+        pc = 85: 96;
+        pc = 86: 87;
+        pc = 87: 96;
+        pc = 88: 89;
+        pc = 89: 96;
+        pc = 90: 91;
+        pc = 91 & (x1 = Nb & x2 = B): 92;
+        pc = 91 & !(x1 = Nb & x2 = B): 94;
+        pc = 92: 93;
+        pc = 93: 96;
+        pc = 94: 95;
+        pc = 95: 96;
+        pc = 96: 97;
+        pc = 97: 1;
+        TRUE: pc;
+    esac;
+
+TRANS
+    ( pc = 1 & !(!(sup.ca_is_empty) | sup.ca_is_empty | sup.cb_is_empty | !(sup.cb_is_empty))
+      | pc = 3 & !(sup.ca_is_empty)
+      | pc = 5 & !(sup.ca_is_empty)
+      | pc = 7 & !(sup.ca_is_empty)
+      | pc = 9 & !(sup.ca_is_empty)
+      | pc = 11 & !(sup.ca_is_empty)
+      | pc = 13 & !(sup.ca_is_empty)
+      | pc = 15 & !(sup.ca_is_empty)
+      | pc = 17 & !(sup.ca_is_empty)
+      | pc = 19 & !(sup.ca_is_empty)
+      | pc = 21 & !(sup.ca_is_empty)
+      | pc = 23 & !(sup.ca_is_empty)
+      | pc = 25 & !(sup.ca_is_empty)
+      | pc = 27 & !(sup.ca_is_empty)
+      | pc = 29 & !(sup.ca_is_empty)
+      | pc = 31 & !(sup.ca_is_empty)
+      | pc = 33 & !(sup.ca_is_empty)
+      | pc = 35 & !(sup.ca_is_empty)
+      | pc = 37 & !(sup.ca_is_empty)
+      | pc = 39 & !(sup.ca_is_empty)
+      | pc = 41 & !(sup.ca_is_empty)
+      | pc = 43 & !(sup.ca_is_empty)
+      | pc = 45 & !(sup.ca_is_empty)
+      | pc = 47 & !(sup.ca_is_empty)
+      | pc = 49 & !(sup.ca_is_empty)
+      | pc = 51 & !(sup.cb_is_empty)
+      | pc = 80 & sup.cb_is_empty
+      | pc = 98
+      | !runable
+       -> !running )
+
+MODULE initial(sup)
+VAR
+    PIni_process1: process PIni(sup, FALSE);
+    PIni_process2: process PIni(sup, FALSE);
+    PRes_process : process PRes(sup, FALSE);
+    PI_process   : process PI(sup, FALSE);
+    pc: 1..6;
+ASSIGN
+    init(pc) := 1;
+
+    next(PIni_process1.runable) := case
+        pc = 2: TRUE;
+        TRUE: PIni_process1.runable;
+    esac;
+
+    next(PIni_process1.slef) := case
+        pc = 2: A1;
+        TRUE: PIni_process1.slef;
+    esac;
+
+    next(PIni_process1.nonce) := case
+        pc = 2: Na;
+        TRUE: PIni_process1.nonce;
+    esac;
+
+    next(PIni_process1.party) := case
+        pc = 2: I;
+        TRUE: PIni_process1.party;
+    esac;
+
+    next(PIni_process2.runable) := case
+        pc = 3: TRUE;
+        TRUE: PIni_process2.runable;
+    esac;
+
+    next(PIni_process2.slef) := case
+        pc = 3: A1;
+        TRUE: PIni_process2.slef;
+    esac;
+
+    next(PIni_process2.nonce) := case
+        pc = 3: Na;
+        TRUE: PIni_process2.nonce;
+    esac;
+
+    next(PIni_process2.party) := case
+        pc = 3: B;
+        TRUE: PIni_process2.party;
+    esac;
+
+    next(PRes_process.runable) := case
+        pc = 4: TRUE;
+        TRUE: PRes_process.runable;
+    esac;
+
+    next(PRes_process.slef) := case
+        pc = 4: B;
+        TRUE: PRes_process.slef;
+    esac;
+
+    next(PRes_process.nonce) := case
+        pc = 4: Nb;
+        TRUE: PRes_process.nonce;
+    esac;
+
+    next(PI_process.runable) := case
+        pc = 5: TRUE;
+        TRUE: PI_process.runable;
+    esac;
+
+TRANS
+    (running & (
+          pc = 1 & next(pc) = 2
+        | pc = 1 & next(pc) = 3
+        | pc = 2 & next(pc) = 4
+        | pc = 3 & next(pc) = 4
+        | pc = 4 & next(pc) = 5
+        | pc = 5 & next(pc) = 6
+    ) | !running & next(pc) = pc) & (
+          pc = 2
+        | pc = 3
+        | pc = 4
+        | pc = 5
+          -> running
+    ) & (
+        pc = 6 -> !running
+    )
