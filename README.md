@@ -18,7 +18,18 @@ If we assume that A and B already knows each others public keys, we can remove f
 
 The model has been verified with [SPIN](https://spinroot.com/spin/whatispin.html), [Murphi](http://formalverification.cs.utah.edu/Murphi/) and [NuSMV](https://nusmv.fbk.eu/), three well known model-checkers. 
 
->Say that X takes part in a protocol run with Y
->if X has initiated a protocol session with Y
->Say that X commits to a session with Y
->if X has correctly concluded a protocol session with Y
+>Say that X takes part in a protocol run with Y if X has initiated a protocol session with Y. Say that X commits to a session with Y if X has correctly concluded a protocol session with Y. 
+
+Following the above definition, we can state that: the *authentication* of B to A means that A commits to a session with B and B has indeed taken part in a protocol run with A, and viceversa. These are the two properties that we want to verify. In LTL we have
+
+```
+[] (([] !(IniCommitAB)) || (!(IniCommitAB) U (ResRunningAB)))
+[] (([] !(ResCommitAB)) || (!(ResCommitAB) U (IniRunningAB)))
+```
+
+Finally, I added one more property to be verified: the **deadlock** property. In this model we have a deadlock only if we cannot never reach the authentication, i.e., if the protocol is stuck and no authentication has been reached. This is the corresponding LTL spec
+
+```
+[] <> (  IniCommitAB & IniRunningAB
+       & ResCommitAB & ResRunningAB)
+```
